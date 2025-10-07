@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -36,16 +35,16 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white mb-2">🎲 Sistema de Sorteio</h1>
-            <p class="text-blue-100">Cadastre-se e participe do sorteio!</p>
+            <p id="headerSubtitle" class="text-blue-100">Bem-vindo ao sistema de sorteio!</p>
             
-            <!-- Status de Conexão Firebase -->
-            <div id="connectionStatus" class="mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium">
+            <!-- Status de Conexão Firebase (só para admin) -->
+            <div id="connectionStatus" class="mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium hidden">
                 <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 <span>Conectando ao Firebase...</span>
             </div>
             
-            <!-- Botão de Teste -->
-            <div class="mt-4">
+            <!-- Botão de Teste (só para admin) -->
+            <div id="testConnectionSection" class="mt-4 hidden">
                 <button 
                     id="testConnectionBtn"
                     class="bg-white bg-opacity-20 text-white px-6 py-2 rounded-lg hover:bg-opacity-30 transition-all duration-200 text-sm font-medium"
@@ -243,7 +242,7 @@
         let participants = [];
         
         // Configuração de segurança
-        const ADMIN_PASSWORD = 'admin123'; // Altere esta senha para sua preferência
+        let adminPassword = null; // Será carregada do Firebase
         let isAdminLoggedIn = false;
         
         // Elementos do DOM
@@ -266,18 +265,37 @@
         
         // Inicializar Firebase e carregar dados
         const participantsRef = ref(database, 'participants');
+        const configRef = ref(database, 'config');
         
         // Teste de conexão Firebase
         const connectionStatus = document.getElementById('connectionStatus');
         
+        // Carregar configurações do Firebase (incluindo senha admin)
+        onValue(configRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const config = snapshot.val();
+                adminPassword = config.adminPassword;
+            } else {
+                // Se não existir configuração, criar uma padrão
+                const defaultConfig = {
+                    adminPassword: 'admin123'
+                };
+                set(configRef, defaultConfig);
+                adminPassword = 'admin123';
+            }
+        });
+        
         // Escutar mudanças em tempo real
         onValue(participantsRef, (snapshot) => {
-            // Atualizar status de conexão
-            connectionStatus.innerHTML = `
-                <div class="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-                <span class="text-green-100">🔥 Firebase Conectado!</span>
-            `;
-            connectionStatus.className = 'mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-green-500 bg-opacity-20';
+            // Atualizar status de conexão (só para admin)
+            if (isAdminLoggedIn) {
+                connectionStatus.innerHTML = `
+                    <div class="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                    <span class="text-green-100">🔥 Firebase Conectado!</span>
+                `;
+                connectionStatus.className = 'mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-green-500 bg-opacity-20';
+                connectionStatus.classList.remove('hidden');
+            }
             
             participants = [];
             if (snapshot.exists()) {
@@ -293,13 +311,16 @@
             }
             updateDisplay();
         }, (error) => {
-            // Erro de conexão
+            // Erro de conexão (só para admin)
             console.error('Erro de conexão Firebase:', error);
-            connectionStatus.innerHTML = `
-                <div class="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                <span class="text-red-100">❌ Erro de Conexão</span>
-            `;
-            connectionStatus.className = 'mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-red-500 bg-opacity-20';
+            if (isAdminLoggedIn) {
+                connectionStatus.innerHTML = `
+                    <div class="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
+                    <span class="text-red-100">❌ Erro de Conexão</span>
+                `;
+                connectionStatus.className = 'mt-4 inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-red-500 bg-opacity-20';
+                connectionStatus.classList.remove('hidden');
+            }
         });
         
         // Inicializar a página
@@ -366,13 +387,19 @@
             
             const password = document.getElementById('adminPassword').value;
             
-            if (password === ADMIN_PASSWORD) {
+            if (password === adminPassword) {
                 isAdminLoggedIn = true;
                 loginModal.classList.add('hidden');
                 adminPanel.classList.remove('hidden');
                 participantsSection.classList.remove('hidden');
                 loginForm.reset();
                 loginError.classList.add('hidden');
+                
+                // Mostrar informações técnicas para admin
+                connectionStatus.classList.remove('hidden');
+                document.getElementById('testConnectionSection').classList.remove('hidden');
+                document.getElementById('headerSubtitle').textContent = 'Painel Administrativo - Gerencie participantes e sorteios';
+                
                 updateDisplay();
                 
                 // Adicionar botão de logout
@@ -396,6 +423,11 @@
             adminPanel.classList.add('hidden');
             participantsSection.classList.add('hidden');
             sorteioResult.classList.add('hidden');
+            
+            // Ocultar informações técnicas
+            connectionStatus.classList.add('hidden');
+            document.getElementById('testConnectionSection').classList.add('hidden');
+            document.getElementById('headerSubtitle').textContent = 'Bem-vindo ao sistema de sorteio!';
             
             const logoutBtn = document.getElementById('logoutBtn');
             if (logoutBtn) {
@@ -568,5 +600,5 @@
             }
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98b0a1a05245275b',t:'MTc1OTg3NDAwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98b0b8075652275b',t:'MTc1OTg3NDkyNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
